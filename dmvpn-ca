@@ -879,6 +879,15 @@ commands = {
 				update('site', {active='0'}, {code=site})
 				return output
 			end
+		},
+		reactivate={
+			'<abbr>',
+			function()
+				local site = scan_site(false)
+				scan_finished()
+
+				update('site', {active='1'}, {code=site})
+			end
 		}
 	},
 	subnet={
@@ -992,6 +1001,23 @@ commands = {
 
 				return deactivate_vpnc(site, id)
 			end
+		},
+		reactivate={
+			'<id> site <abbr>',
+			function()
+				local id = toid(scan_next('VPNc number'))
+				local site = scan_site_selector{active=true}
+				scan_finished()
+
+				local filter = {site=site, id=id}
+				check_exists(
+					'vpnc',
+					filter,
+					'Invalid VPNc number: '..id,
+					false
+				)
+				update('vpnc', {active='1'}, filter)
+			end
 		}
 	},
 	['gre-addr']={
@@ -1084,6 +1110,15 @@ commands = {
 				)
 
 				return deactivate_vpnc('', id)
+			end
+		},
+		reactivate={
+			'<id>',
+			function()
+				local id = scan_hub(false)
+				scan_finished()
+
+				update('vpnc', {active='1'}, {site='', id=id})
 			end
 		}
 	},
