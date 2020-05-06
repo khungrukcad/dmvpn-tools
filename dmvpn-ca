@@ -492,20 +492,22 @@ end
 
 function scan_site_code() return scan_next('site code'):upper() end
 
-function validate_site(code, retired)
+function validate_site(code, inactive)
 	code = code:upper()
-	if exists('site', {code=code}, not retired) then return code end
+	if exists('site', {code=code}, not inactive) then return code end
 	user_error('Invalid site code: '..code)
 end
 
-function scan_site(retired) return validate_site(scan_site_code(), retired) end
+function scan_site(inactive)
+	return validate_site(scan_site_code(), inactive)
+end
 
 function scan_site_selector(options)
 	options = options or {}
 	local _, code = scan_param(
 		options.param or 'site', 'selector', options.required == false
 	)
-	if code then return validate_site(code, options.retired) end
+	if code then return validate_site(code, options.inactive) end
 end
 
 
@@ -543,11 +545,11 @@ function scan_vpnc(options)
 		)
 		if not (vpnc or options.multiple) then vpnc = 1 end
 
-		res = {site=validate_site(v, options.retired), id=vpnc}
+		res = {site=validate_site(v, options.inactive), id=vpnc}
 		obj = 'VPNc'
 	end
 
-	if res.id and not exists('vpnc', res, not options.retired) then
+	if res.id and not exists('vpnc', res, not options.inactive) then
 		user_error('Invalid '..obj..' number: '..res.id)
 	end
 
@@ -638,7 +640,7 @@ function add_subnet(site, addr)
 end
 
 
-function retire_vpnc(site, id)
+function deactivate_vpnc(site, id)
 	local filter = {site=site, id=id}
 	local vf = vpnc_filter(filter)
 	local revoked = revoke(vf)
@@ -677,7 +679,7 @@ function get_certs()
 	end
 
 	return select_certs(
-		vpnc_filter(scan_vpnc{multiple=true, retired=true}) or
+		vpnc_filter(scan_vpnc{multiple=true, inactive=true}) or
 			'serial > 0'
 	)
 end
@@ -785,7 +787,10 @@ function confirm(object, action, tbl)
 	if #tbl == 0 then user_error('No such '..object..' to be '..action) end
 	simple_confirm(
 		function()
-			io.write('The following '..object..' will be '..action..':\n\n')
+			io.write(
+				'The following '..object..' will be '..action..
+					':\n\n'
+			)
 			print_table(tbl)
 		end
 	)
@@ -840,22 +845,26 @@ commands = {
 			'[code <abbr>]',
 			function()
 				local site = scan_site_filter{
-					param='code', retired=true
+					param='code', inactive=true
 				}
 				scan_finished()
 
 				return show_site(site or "code > ''")
 			end
 		},
-		retire={
+		deactivate={
 			'<abbr>',
 			function()
 				local site = scan_site()
 				scan_finished()
-				confirm('site', 'retired', show_site{code=site})
+				confirm(
+					'site',
+					'deactivated',
+					show_site{code=site}
+				)
 
 				delete('subnet', {site=site})
-				local output = retire_vpnc(site)
+				local output = deactivate_vpnc(site)
 				update('site', {active='0'}, {code=site})
 				return output
 			end
@@ -951,13 +960,13 @@ commands = {
 		show={
 			'[site <abbr>]',
 			function()
-				local site = scan_site_filter{retired=true}
+				local site = scan_site_filter{inactive=true}
 				scan_finished()
 
 				return show_vpnc(site)
 			end
 		},
-		retire={
+		deactivate={
 			'<id> site <abbr>',
 			function()
 				local id = toid(scan_next('VPNc number'))
@@ -965,11 +974,11 @@ commands = {
 				scan_finished()
 				confirm(
 					'VPNc',
-					'retired',
+					'deactivated',
 					show_vpnc({code=site}, id)
 				)
 
-				return retire_vpnc(site, id)
+				return deactivate_vpnc(site, id)
 			end
 		}
 	},
@@ -1051,18 +1060,18 @@ commands = {
 				return show_vpnc{code=''}
 			end
 		},
-		retire={
+		deactivate={
 			'<id>',
 			function()
 				local id = toid(scan_next('hub number'))
 				scan_finished()
 				confirm(
 					'hub',
-					'retired',
+					'deactivated',
 					show_vpnc({code=''}, id)
 				)
 
-				return retire_vpnc('', id)
+				return deactivate_vpnc('', id)
 			end
 		}
 	},
