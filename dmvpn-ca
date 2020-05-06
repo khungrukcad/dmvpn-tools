@@ -182,8 +182,10 @@ function select_one(...)
 	return res
 end
 
-function check_exists(tbl, filter, msg, active_only)
-	if active_only then filter.active = '1' end
+function check_exists(tbl, filter, msg, active)
+	if active ~= nil then
+		filter.active = active and '1' or '0'
+	end
 	if not select_one('0', tbl, filter) then user_error(msg) end
 end
 
@@ -492,24 +494,20 @@ end
 
 function scan_site_code() return scan_next('site code'):upper() end
 
-function validate_site(code, inactive)
+function validate_site(code, active)
 	code = code:upper()
-	check_exists(
-		'site', {code=code}, 'Invalid site code: '..code, not inactive
-	)
+	check_exists('site', {code=code}, 'Invalid site code: '..code, active)
 	return code
 end
 
-function scan_site(inactive)
-	return validate_site(scan_site_code(), inactive)
-end
+function scan_site(active) return validate_site(scan_site_code(), active) end
 
 function scan_site_selector(options)
 	options = options or {}
 	local _, code = scan_param(
 		options.param or 'site', 'selector', options.required == false
 	)
-	if code then return validate_site(code, options.inactive) end
+	if code then return validate_site(code, options.active) end
 end
 
 
@@ -547,7 +545,7 @@ function scan_vpnc(options)
 		)
 		if not (vpnc or options.multiple) then vpnc = 1 end
 
-		res = {site=validate_site(v, options.inactive), id=vpnc}
+		res = {site=validate_site(v, options.active), id=vpnc}
 		obj = 'VPNc'
 	end
 
@@ -556,7 +554,7 @@ function scan_vpnc(options)
 			'vpnc',
 			res,
 			'Invalid '..obj..' number: '..res.id,
-			not options.inactive
+			options.active
 		)
 	end
 
@@ -686,8 +684,7 @@ function get_certs()
 	end
 
 	return select_certs(
-		vpnc_filter(scan_vpnc{multiple=true, inactive=true}) or
-			'serial > 0'
+		vpnc_filter(scan_vpnc{multiple=true}) or 'serial > 0'
 	)
 end
 
@@ -851,9 +848,7 @@ commands = {
 		show={
 			'[code <abbr>]',
 			function()
-				local site = scan_site_filter{
-					param='code', inactive=true
-				}
+				local site = scan_site_filter{param='code'}
 				scan_finished()
 
 				return show_site(site or "code > ''")
@@ -862,7 +857,7 @@ commands = {
 		deactivate={
 			'<abbr>',
 			function()
-				local site = scan_site()
+				local site = scan_site(true)
 				scan_finished()
 				confirm(
 					'site',
@@ -882,7 +877,7 @@ commands = {
 			'<addr> site <abbr>',
 			function()
 				local addr = scan_subnet()
-				local site = scan_site_selector()
+				local site = scan_site_selector{active=true}
 				scan_finished()
 
 				add_subnet(site, addr)
@@ -891,7 +886,7 @@ commands = {
 		show={
 			'[site <abbr>]',
 			function()
-				local site = scan_site_filter()
+				local site = scan_site_filter{active=true}
 				scan_finished()
 
 				return show(
@@ -906,7 +901,9 @@ commands = {
 			'<addr> [site <abbr>]',
 			function()
 				local addr = scan_subnet()
-				local filter = site_filter(scan_site_filter())
+				local filter = site_filter(
+					scan_site_filter{active=true}
+				)
 				scan_finished()
 
 				if not filter then filter = {} end
@@ -925,7 +922,7 @@ commands = {
 		create={
 			'site <abbr> [id <num>]',
 			function()
-				local site = scan_site_selector()
+				local site = scan_site_selector{active=true}
 				local _, id = scan_param('id', 'VPNc ID', true)
 				scan_finished()
 
@@ -966,7 +963,7 @@ commands = {
 		show={
 			'[site <abbr>]',
 			function()
-				local site = scan_site_filter{inactive=true}
+				local site = scan_site_filter()
 				scan_finished()
 
 				return show_vpnc(site)
@@ -976,7 +973,7 @@ commands = {
 			'<id> site <abbr>',
 			function()
 				local id = toid(scan_next('VPNc number'))
-				local site = scan_site_selector()
+				local site = scan_site_selector{active=true}
 				scan_finished()
 				confirm(
 					'VPNc',
@@ -993,7 +990,7 @@ commands = {
 			'<addr> {hub <id>|site <abbr> [vpnc <id>]}',
 			function()
 				local addr = scan_addr()
-				local vpnc = scan_vpnc()
+				local vpnc = scan_vpnc{active=true}
 				scan_finished()
 
 				insert(
@@ -1183,7 +1180,7 @@ commands = {
 			function()
 				local crl = arg[1] == 'crl'
 				local vpnc = not crl and vpnc_filter(
-					scan_vpnc{multiple=true},
+					scan_vpnc{active=true, multiple=true},
 					's.code',
 					'v.id'
 				)
