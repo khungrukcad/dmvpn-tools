@@ -92,6 +92,10 @@ now = os.time()
 stat.umask(bit32.bor(stat.S_IRWXG, stat.S_IRWXO))
 
 
+function user_error(msg) error{false, msg} end
+function syntax_error(msg) error{true, msg} end
+
+
 function connection()
 	if not sql then
 		sql = require('luasql.sqlite3').sqlite3()
@@ -178,9 +182,9 @@ function select_one(...)
 	return res
 end
 
-function exists(tbl, filter, active_only)
+function check_exists(tbl, filter, msg, active_only)
 	if active_only then filter.active = '1' end
-	return select_one('0', tbl, filter) and true or false
+	if not select_one('0', tbl, filter) then user_error(msg) end
 end
 
 function next_key(tbl, key, filter)
@@ -190,10 +194,6 @@ end
 function select_cert(serial)
 	return select_one('*', 'certificate', {serial=serial}, 'a')
 end
-
-
-function user_error(msg) error{false, msg} end
-function syntax_error(msg) error{true, msg} end
 
 
 function toint(s, min, max, desc)
@@ -494,8 +494,10 @@ function scan_site_code() return scan_next('site code'):upper() end
 
 function validate_site(code, inactive)
 	code = code:upper()
-	if exists('site', {code=code}, not inactive) then return code end
-	user_error('Invalid site code: '..code)
+	check_exists(
+		'site', {code=code}, 'Invalid site code: '..code, not inactive
+	)
+	return code
 end
 
 function scan_site(inactive)
@@ -549,8 +551,13 @@ function scan_vpnc(options)
 		obj = 'VPNc'
 	end
 
-	if res.id and not exists('vpnc', res, not options.inactive) then
-		user_error('Invalid '..obj..' number: '..res.id)
+	if res.id then
+		check_exists(
+			'vpnc',
+			res,
+			'Invalid '..obj..' number: '..res.id,
+			not options.inactive
+		)
 	end
 
 	return res
@@ -904,12 +911,11 @@ commands = {
 
 				if not filter then filter = {} end
 				filter.address = addr
-
-				if not exists('subnet', filter) then
-					user_error(
-						'Address does not exist: '..addr
-					)
-				end
+				check_exists(
+					'subnet',
+					filter,
+					'Address does not exist: '..addr
+				)
 
 				delete('subnet', filter)
 			end
