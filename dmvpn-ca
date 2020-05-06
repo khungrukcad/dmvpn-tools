@@ -492,6 +492,15 @@ function scan_param(choices, desc, optional)
 end
 
 
+function scan_hub(active)
+	local id = toid(scan_next('hub number'))
+	check_exists(
+		'vpnc', {site='', id=id}, 'Invalid hub number: '..id, active
+	)
+	return id
+end
+
+
 function scan_site_code() return scan_next('site code'):upper() end
 
 function validate_site(code, active)
@@ -1039,7 +1048,7 @@ commands = {
 			'name <value> <id>',
 			function()
 				local _, name = scan_param('name', 'attribute')
-				local id = toid(scan_next('hub number'))
+				local id = scan_hub()
 				scan_finished()
 
 				update('vpnc', {name=name}, {site='', id=id})
@@ -1049,7 +1058,7 @@ commands = {
 			'name <id>',
 			function()
 				scan_name_token()
-				local id = toid(scan_next('hub number'))
+				local id = scan_hub()
 				scan_finished()
 
 				update('vpnc', {name=false}, {site='', id=id})
@@ -1066,7 +1075,7 @@ commands = {
 		deactivate={
 			'<id>',
 			function()
-				local id = toid(scan_next('hub number'))
+				local id = scan_hub(true)
 				scan_finished()
 				confirm(
 					'hub',
