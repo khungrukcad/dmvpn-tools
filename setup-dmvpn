@@ -23,16 +23,24 @@ done
 
 NFLOG_GROUP=
 if [ $VPNC_TYPE = hub ]; then
-	ask "NFLOG group" 1
-	NFLOG_GROUP=$resp
+	CONF_FILE=/etc/dmvpn.conf
+	[ -e $CONF_FILE ] && . $CONF_FILE
 
-	ask "DMVPN site IPv4 prefix length" 16
-	SITE_PREFIX_LEN_IPV4=$resp
+	get_param() {
+		eval "[ \"\$$1\" ]" && return
+		resp=
+		while ! expr "$resp" : '[1-9][0-9]\?[0-9]\?$' > /dev/null; do
+			ask "$2" $3
+		done
+		eval $1=$resp
+		echo $1=$resp >> $CONF_FILE
+	}
 
-	if [ "$GRE_IPV6_ADDRESS" ]; then
-		ask "DMVPN site IPv6 prefix length" 48
-		SITE_PREFIX_LEN_IPV6=$resp
-	fi
+	get_param NFLOG_GROUP "NFLOG group" 1
+	get_param SITE_PREFIX_LEN_IPV4 "DMVPN site IPv4 prefix length" 16
+	[ "$GRE_IPV6_ADDRESS" ] && \
+		get_param SITE_PREFIX_LEN_IPV6 "DMVPN site IPv6 prefix length" \
+			48
 fi
 
 
