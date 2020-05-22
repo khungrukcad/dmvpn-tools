@@ -21,9 +21,6 @@ for attr in GRE_IPV4_ADDRESS HUBS VPNC_TYPE; do
 done
 
 
-ask "NHRP network ID" 1
-NHRP_ID=$resp
-
 NFLOG_GROUP=
 if [ $VPNC_TYPE = hub ]; then
 	ask "NFLOG group" 1
@@ -85,7 +82,7 @@ get_nhrp_config() {
 	(
 		IFS=$'\n'
 		get_config_cmds "$1 nhrp" \
-			"network-id $NHRP_ID" \
+			"network-id 1" \
 			shortcut \
 			"registration no-unique" \
 			"${NFLOG_GROUP:+redirect}" \
