@@ -290,7 +290,7 @@ EOF
 
 	awall translate
 
-	if modprobe $GRE_MODULE; then
+	if modprobe $GRE_MODULE 2>/dev/null; then
 		echo $GRE_MODULE > /etc/modules-load.d/dmvpn.conf
 	fi
 
